@@ -105,9 +105,15 @@
             .attr("class", "node")
             .attr("transform", d => `translate(${source.y0},${source.x0})`)
             .on("click", (event, d) => {
-                d.children = d.children ? null : d._children;
-                update(d);
-            });
+            if (d.children) {
+                d._children = d.children; // Met les branches en mémoire
+                d.children = null;        // Cache les branches
+            } else {
+                d.children = d._children; // Restaure les branches
+                d._children = null;       // Vide la mémoire temporaire
+            }
+            update(d);
+        });
 
         nodeEnter.append("circle")
             .attr("r", 7)
