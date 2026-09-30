@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Organigramme Defra</title>
+    <!-- Importation de D3.js v7 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Styles globaux */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #f4f7f6; 
+        }
+        #tree-container { 
+            width: 100vw; 
+            height: 100vh; 
+        }
+        
+        /* Styles des nœuds et des liens */
+        .node { cursor: pointer; }
+        .node text { pointer-events: none; }
+        .link { fill: none; stroke: #b0c4de; stroke-width: 2px; }
+        
+        /* Style de l'infobulle (Tooltip) */
+        #tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 12px;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0; /* Caché par défaut */
+            box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: opacity 0.2s ease-in-out;
+            color: #333;
+        }
+        #tooltip p { margin: 5px 0; }
+        .tooltip-label { font-weight: bold; color: #005ea5; }
+    </style>
+</head>
+<body>
+
+<!-- Conteneur pour l'infobulle -->
+<div id="tooltip"></div>
+<!-- Conteneur pour le SVG (Pan & Zoom) -->
+<div id="tree-container"></div>
+
+<script>
+    // 1. Configuration des dimensions et de la vue
+    const margin = {top: 20, right: 120, bottom: 20, left: 120};
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const rectWidth = 240;
+    const rectHeight = 60;
+
+    // Création du conteneur SVG
+    const svg = d3.select("#tree-container").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    const g = svg.append("g");
+
+    // Ajout des fonctionnalités Pan & Zoom
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 3]) // Limites du zoom
+        .on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+    svg.call(zoom);
+
+    // Initialisation du centrage de la caméra
+    const initialTransform = d3.zoomIdentity.translate(margin.left, height / 2);
+    svg.call(zoom.transform, initialTransform);
+
+    // Configuration de l'arbre D3 (espace vertical et horizontal entre les cases)
+    const tree = d3.tree().nodeSize([80, 320]); 
+
+    let root;
+    let i = 0;
+    const duration = 600; // Durée des animations en ms
+
+    // Noms exacts de tes fichiers CSV
+    const fileSenior = "2026-06-22T15-22-05Z-2026-06-22-organogram-senior.csv";
+    const fileJunior = "2026-06-22T15-22-05Z-2026-06-22-organogram-junior.csv";
+
+    // 2. Chargement des données CSV
+    Promise.all([
+        d3.csv(fileSenior).catch(() => []),
+        d3.csv(fileJunior).catch(() => [])
+    ]).then(files => {
+        const seniorData = files[0];
+        const juniorData = files[1];
+        // Fusion des deux datasets
+        const rawData = seniorData.concat(juniorData);
+
+        if(rawData.length === 0) {
+            alert("Erreur: Les fichiers CSV sont introuvables ou vides.");
+            return;
+        }
+
+        // 3. Transformation des données brutes en hiérarchie
+        const nodesMap = new Map();
+        const rootNodes = [];
+
+        rawData.forEach((d, index) => {
+            let id = d["Post Unique Reference"];
+            // Générer un ID fictif pour les lignes qui n'en ont pas
+            if (!id || id.trim() === "" || id === "N/A" || id === "-") {
+                id = "no_id_" + index; 
+            }
+            
+            let name = d["Name"];
+            if (!name || name === "N/A" || name === "Not Disclosed") name = "Nom non divulgué";
+            
+            // On sauvegarde toutes les colonnes utiles
+            nodesMap.set(id, {
+                id: id,
+                name: name,
+                title: d["Job Title"] || "Titre inconnu",
+                parent: d["Reports to Senior Post"],
+                grade: d["Grade (or equivalent)"] || "Non renseigné",
+                unit: d["Unit"] || "Non renseigné",
+                func: d["Job/Team Function"] || "Non renseigné",
+                email: d["Contact E-mail"] || "Non renseigné",
+                children: []
+            });
+        });
+
+        // Construction de l'arbre : on lie chaque nœud à son parent
+        nodesMap.forEach(node => {
+            let parentId = node.parent;
+            if (parentId && nodesMap.has(parentId) && parentId !== node.id) {
+                nodesMap.get(parentId).children.push(node);
+            } else {
+                rootNodes.push(node);
+            }
+        });
+
+        // Gestion du cas où il y a de multiples racines (très courant dans les données gov.uk)
+        let treeData;
+        if (rootNodes.length === 1) {
+            treeData = rootNodes[0];
+        } else {
+            treeData = {
+                id: "root_defra",
+                name: "Defra",
+                title: "Département Parent",
+                grade: "", unit: "", func: "", email: "",
+                children: rootNodes
+            };
+        }
+
+        // Conversion en hiérarchie D3
+        root = d3.hierarchy(treeData, d => d.children);
+        root.x0 = 0;
+        root.y0 = 0;
+
+        // Fonction pour replier tous les nœuds descendants
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+
+        // Par défaut, on replie tout sauf le premier niveau
+        if(root.children) {
+            root.children.forEach(collapse);
+        }
+
+        update(root);
+    });
+
+    // 4. Fonction de mise à jour et de dessin (Update)
+    function update(source) {
+        const treeData = tree(root);
+        const nodes = treeData.descendants();
+        const links = treeData.descendants().slice(1);
+
+        // --- SECTION NOEUDS ---
+        const node = g.selectAll('g.node')
+            .data(nodes, d => d.id || (d.id = ++i));
+
+        // Nouveaux nœuds entrants
+        const nodeEnter = node.enter().append('g')
+            .attr('class', 'node')
+            .attr("transform", d => `translate(${source.y0},${source.x0})`)
+            .on('click', click)
+            .on('mouseover', mouseover)
+            .on('mouseout', mouseout);
+
+        // Dessin du rectangle
+        nodeEnter.append('rect')
+            .attr('width', rectWidth)
+            .attr('height', rectHeight)
+            .attr('y', -rectHeight / 2)
+            .attr('rx', 6) // Coins arrondis
+            .attr('fill', d => d._children ? "#e6f2ff" : "#ffffff")
+            .attr('stroke', d => d._children ? "#005ea5" : "#cccccc")
+            .attr('stroke-width', '2px');
+
+        // Texte : Nom (tronqué si trop long)
+        nodeEnter.append('text')
+            .attr("dy", "-0.2em")
+            .attr("x", rectWidth / 2)
+            .attr("text-anchor", "middle")
+            .style('font-size', '14px')
+            .style('font-weight', 'bold')
+            .style('fill', '#111')
+            .text(d => {
+                const n = d.data.name || "";
+                return n.length > 28 ? n.substring(0, 25) + '...' : n;
+            });
+
+        // Texte : Job Title (tronqué si trop long)
+        nodeEnter.append('text')
+            .attr("dy", "1.3em")
+            .attr("x", rectWidth / 2)
+            .attr("text-anchor", "middle")
+            .style('font-size', '12px')
+            .style('fill', '#555')
+            .text(d => {
+                const t = d.data.title || "";
+                return t.length > 35 ? t.substring(0, 32) + '...' : t;
+            });
+
+        // Mise à jour des positions
+        const nodeUpdate = nodeEnter.merge(node);
+        nodeUpdate.transition()
+            .duration(duration)
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        nodeUpdate.select('rect')
+            .attr('fill', d => d._children ? "#e6f2ff" : "#ffffff")
+            .attr('stroke', d => d._children ? "#005ea5" : "#cccccc");
+
+        // Suppression des nœuds
+        const nodeExit = node.exit().transition()
+            .duration(duration)
+            .attr("transform", d => `translate(${source.y},${source.x})`)
+            .remove();
+
+        // --- SECTION LIENS ---
+        // Lignes courbes reliant la droite du parent à la gauche de l'enfant
+        const diagonal = d3.linkHorizontal()
+            .source(d => [d.source.y + rectWidth, d.source.x])
+            .target(d => [d.target.y, d.target.x]);
+
+        const link = g.selectAll('path.link')
+            .data(links, d => d.id);
+
+        const linkEnter = link.enter().insert('path', "g")
+            .attr("class", "link")
+            .attr('d', d => {
+                const o = {x: source.x0, y: source.y0};
+                return diagonal({source: o, target: o});
+            });
+
+        const linkUpdate = linkEnter.merge(link);
+        linkUpdate.transition()
+            .duration(duration)
+            .attr('d', diagonal);
+
+        link.exit().transition()
+            .duration(duration)
+            .attr('d', d => {
+                const o = {x: source.x, y: source.y};
+                return diagonal({source: o, target: o});
+            })
+            .remove();
+
+        // Sauvegarder l'ancienne position pour la transition
+        nodes.forEach(d => {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    // 5. Gestion des événements : Clic (replier/déplier)
+    function click(event, d) {
+        if (d.children) {
+            d._children = d.children; // On sauvegarde les enfants pour les replier
+            d.children = null;
+        } else {
+            d.children = d._children; // On restaure les enfants
+            d._children = null;
+        }
+        update(d);
+    }
+
+    // 6. Gestion des événements : Tooltip (Infobulle) au survol
+    const tooltip = d3.select("#tooltip");
+    
+    function mouseover(event, d) {
+        // Bloquer l'infobulle pour la racine virtuelle si elle existe
+        if (d.data.id === "root_defra") return;
+
+        tooltip.transition().duration(200).style("opacity", 1);
+        tooltip.html(`
+            <p><span class="tooltip-label">Grade :</span> ${d.data.grade}</p>
+            <p><span class="tooltip-label">Unit :</span> ${d.data.unit}</p>
+            <p><span class="tooltip-label">Fonction :</span> ${d.data.func}</p>
+            <p><span class="tooltip-label">Email :</span> <a href="mailto:${d.data.email}">${d.data.email}</a></p>
+        `)
+        // Positionner l'infobulle près de la souris
+        .style("left", (event.pageX + 20) + "px")
+        .style("top", (event.pageY - 30) + "px");
+    }
+
+    function mouseout(event, d) {
+        tooltip.transition().duration(500).style("opacity", 0);
+    }
+</script>
+</body>
+</html>
