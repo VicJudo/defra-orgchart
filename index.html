@@ -2,319 +2,179 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Organigramme Defra</title>
-    <!-- Importation de D3.js v7 -->
+    <title>Organigramme Hiérarchique Defra</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* Styles globaux */
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #f4f7f6; 
-        }
-        #tree-container { 
-            width: 100vw; 
-            height: 100vh; 
-        }
-        
-        /* Styles des nœuds et des liens */
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: #f8fafc; overflow: hidden; }
+        #tree-container { width: 100vw; height: 100vh; }
         .node { cursor: pointer; }
-        .node text { pointer-events: none; }
-        .link { fill: none; stroke: #b0c4de; stroke-width: 2px; }
+        .node circle { fill: #fff; stroke: #005ea5; stroke-width: 2px; }
+        .node text { font-size: 13px; font-family: 'Segoe UI', sans-serif; }
+        .link { fill: none; stroke: #cbd5e1; stroke-width: 1.5px; }
+        .title-text { fill: #64748b; font-size: 11px; }
+        .name-text { fill: #0f172a; font-weight: bold; }
         
-        /* Style de l'infobulle (Tooltip) */
-        #tooltip {
+        #instructions {
             position: absolute;
-            text-align: left;
-            padding: 12px;
-            font-size: 13px;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #ccc;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
             border-radius: 8px;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             pointer-events: none;
-            opacity: 0; /* Caché par défaut */
-            box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
-            z-index: 10;
-            transition: opacity 0.2s ease-in-out;
+            font-size: 14px;
             color: #333;
         }
-        #tooltip p { margin: 5px 0; }
-        .tooltip-label { font-weight: bold; color: #005ea5; }
     </style>
 </head>
 <body>
 
-<!-- Conteneur pour l'infobulle -->
-<div id="tooltip"></div>
-<!-- Conteneur pour le SVG (Pan & Zoom) -->
+<div id="instructions">
+    <strong>Navigation :</strong> Cliquez et glissez pour bouger.<br>
+    Utilisez la molette pour zoomer.<br>
+    <strong>Cliquez sur les nœuds bleus</strong> pour dérouler les branches.
+</div>
+
 <div id="tree-container"></div>
 
 <script>
-    // 1. Configuration des dimensions et de la vue
-    const margin = {top: 20, right: 120, bottom: 20, left: 120};
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const rectWidth = 240;
-    const rectHeight = 60;
+    // Arbre de données nettoyé et pré-calculé (Seuls les managers et branches actives sont conservés)
+    const treeData = {"name": "Defra", "title": "Department for Environment, Food & Rural Affairs", "children": [{"id": "200319", "name": "Paul Kissack", "title": "Permanent Secretary", "unit": "", "parent": "nan", "children": [{"id": "200033", "name": "Lucy Smith", "title": "SIFFG Office", "unit": "SIFFG Office", "parent": "200319", "children": []}, {"id": "200225", "name": "Nicholas Joicey", "title": "Permanent Secretary", "unit": "Permanent Secretary", "parent": "200319", "children": []}, {"id": "200202", "name": "David Hill", "title": "DEF STRATEGY DG OFFICE", "unit": "DEF STRATEGY DG OFFICE", "parent": "200319", "children": [{"id": "200054", "name": "Christopher Hobley", "title": "Strategy Unit", "unit": "Strategy Unit", "parent": "200202", "children": []}]}, {"id": "200268", "name": "Emily Miles", "title": "DEF FFAPH OFFICE", "unit": "DEF FFAPH OFFICE", "parent": "200319", "children": [{"id": "200339", "name": "Jeremy Sharpe", "title": "DEF FFAPH OFFICE", "unit": "DEF FFAPH OFFICE", "parent": "200268", "children": []}, {"id": "200092", "name": "Mike Rowe", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "DEF FFCP DIRECTORS OFFICE", "parent": "200268", "children": [{"id": "200022", "name": "Janet Hughes", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "DEF FFCP DIRECTORS OFFICE", "parent": "200092", "children": []}]}, {"id": "200327", "name": "Anjali Juneja", "title": "Director: Animal and Plant Health", "unit": "Director: Animal and Plant Health", "parent": "200268", "children": [{"id": "200117", "name": "Christine Middlemiss", "title": "CVO Office", "unit": "CVO Office", "parent": "200327", "children": []}]}]}, {"id": "200297", "name": "Anjali Goswami", "title": "DEF SCIENCE AND ANALYSIS DG OFFICE", "unit": "DEF SCIENCE AND ANALYSIS DG OFFICE", "parent": "200319", "children": []}, {"id": "200180", "name": "Emma Bourne", "title": "DEF RESOURCE AND WASTE DIRECTORS OFFICE", "unit": "DEF RESOURCE AND WASTE DIRECTORS OFFICE", "parent": "200319", "children": []}, {"id": "200206", "name": "Sara Randall", "title": "ERG Office", "unit": "ERG Office", "parent": "200319", "children": [{"id": "200307", "name": "Kate Davies", "title": "ERG Office", "unit": "ERG Office", "parent": "200206", "children": []}, {"id": "200139", "name": "Sebastian Catovsky", "title": "Water Ongoing Activities - Corporate Support", "unit": "Water Ongoing Activities - Corporate Support", "parent": "200206", "children": []}, {"id": "200210", "name": "David Hallam", "title": "Water Ongoing Activities - Corporate Support", "unit": "Water Ongoing Activities - Corporate Support", "parent": "200206", "children": []}, {"id": "200029", "name": "Colin Dingwall", "title": "DEF SCIENCE PROJECTS - MASTERPLAN / SCAH", "unit": "DEF SCIENCE PROJECTS - MASTERPLAN / SCAH", "parent": "200206", "children": []}, {"id": "200091", "name": "Gareth Baynham-Hughes", "title": "DEF MARINE DIRECTOR AND SUPPORT", "unit": "DEF MARINE DIRECTOR AND SUPPORT", "parent": "200206", "children": []}, {"id": "200135", "name": "Toby Nation", "title": "EQ Portfolio Office", "unit": "EQ Portfolio Office", "parent": "200206", "children": []}, {"id": "200140", "name": "Deborah Hankins", "title": "Natural Environment Policy Directors Office", "unit": "Natural Environment Policy Directors Office", "parent": "200206", "children": []}]}, {"id": "200075", "name": "Iain King", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "DEF DEFRA GROUP FINANCE - CFO", "parent": "200319", "children": [{"id": "200341", "name": "Susan Candlish", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "DEF DEFRA GROUP FINANCE - CFO", "parent": "200075", "children": []}, {"id": "200165", "name": "Clare Jeffreys", "title": "DEF EA BUSINESS FINANCE HEAD OFFICE", "unit": "DEF EA BUSINESS FINANCE HEAD OFFICE", "parent": "200075", "children": []}, {"id": "200237", "name": "Kate Smaldon", "title": "Finance Director and Admin Support", "unit": "Finance Director and Admin Support", "parent": "200075", "children": []}]}]}, {"id": "200153", "name": "Ceri Morgan", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "parent": "nan", "children": [{"id": "200316", "name": "Sophie Brice", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "parent": "200153", "children": []}]}, {"id": "200321", "name": "Lyndsay Rooney", "title": "DEF ENABLING PROGRAMMES", "unit": "DEF ENABLING PROGRAMMES", "parent": "nan", "children": []}, {"id": "200006", "name": "Rachel Irving", "title": "DEF EUDP DIRECTOR", "unit": "DEF EUDP DIRECTOR", "parent": "nan", "children": [{"id": "200330", "name": "Ed Moses", "title": "DEF EUDP DIRECTOR", "unit": "DEF EUDP DIRECTOR", "parent": "200006", "children": []}]}, {"id": "200015", "name": "Simon James", "title": "DEF CE PRIVATE OFFICE & SLT", "unit": "DEF CE PRIVATE OFFICE & SLT", "parent": "nan", "children": []}, {"id": "200205", "name": "Rebecca Shrubsole", "title": "DEF MINISTERIAL, GROWTH AND RESILIENCE DIRECTOR", "unit": "DEF MINISTERIAL, GROWTH AND RESILIENCE DIRECTOR", "parent": "nan", "children": []}, {"id": "200301", "name": "Jeremy Blake", "title": "DEF EPR SCHEME ADMINISTRATOR", "unit": "DEF EPR SCHEME ADMINISTRATOR", "parent": "nan", "children": []}, {"id": "200203", "name": "Helen Johnston", "title": "DEF COO & DG OFFICE WORKFORCE", "unit": "DEF COO & DG OFFICE WORKFORCE", "parent": "nan", "children": [{"id": "200149", "name": "Nicola Bettesworth", "title": "DEF HR PRIVATE OFFICE", "unit": "DEF HR PRIVATE OFFICE", "parent": "200203", "children": []}, {"id": "200157", "name": "Christopher Howes", "title": "DEF GIO Resources", "unit": "DEF GIO Resources", "parent": "200203", "children": [{"id": "200181", "name": "Edward Parry", "title": "DEF GIO Resources", "unit": "DEF GIO Resources", "parent": "200157", "children": []}, {"id": "200259", "name": "Susan Bateman", "title": "DEF OFFICE OF THE CHIEF DATA OFFICER", "unit": "DEF OFFICE OF THE CHIEF DATA OFFICER", "parent": "200157", "children": []}, {"id": "200160", "name": "Colin Banno-Thornton", "title": "DEF DDTS - CROSS CUTTING NON-TECHNICAL", "unit": "DEF DDTS - CROSS CUTTING NON-TECHNICAL", "parent": "200157", "children": []}]}]}, {"id": "200191", "name": "Mark Thompson", "title": "DEF NID DIRECTOR'S OFFICE", "unit": "DEF NID DIRECTOR'S OFFICE", "parent": "nan", "children": []}, {"id": "200267", "name": "Kirsten Wildgoose", "title": "DEF PORTFOLIO OFFICE - PORTFOLIO MANAGEMENT OFFICE", "unit": "DEF PORTFOLIO OFFICE - PORTFOLIO MANAGEMENT OFFICE", "parent": "nan", "children": []}, {"id": "200270", "name": "Einav Ben-Yehuda", "title": "DEF COMMERCIAL DIRECTORATE", "unit": "DEF COMMERCIAL DIRECTORATE", "parent": "nan", "children": []}, {"id": "200292", "name": "Andrew Mayes", "title": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "unit": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "parent": "nan", "children": [{"id": "200231", "name": "Christian Cubitt", "title": "Comms Director and Support", "unit": "Comms Director and Support", "parent": "200292", "children": []}]}, {"id": "200077", "name": "Charlotte Baker", "title": "DEF AFC FOOD STRATEGY", "unit": "DEF AFC FOOD STRATEGY", "parent": "nan", "children": []}, {"id": "200087", "name": "Tessa Jones", "title": "DEF AFC FOOD STRATEGY", "unit": "DEF AFC FOOD STRATEGY", "parent": "nan", "children": []}, {"id": "200184", "name": "Andrea Ledward", "title": "DEF IBC DIRECTORATE SUPPORT", "unit": "DEF IBC DIRECTORATE SUPPORT", "parent": "nan", "children": []}, {"id": "200207", "name": "Edward Barker", "title": "DEF EU EXIT ENV GOV BODY AND STATEMENT OF ENV PRINCIPLES", "unit": "DEF EU EXIT ENV GOV BODY AND STATEMENT OF ENV PRINCIPLES", "parent": "nan", "children": []}, {"id": "200264", "name": "Misha Anand", "title": "DEF Strat Business Relationship Man", "unit": "DEF Strat Business Relationship Man", "parent": "nan", "children": []}, {"id": "200067", "name": "Emma Campbell", "title": "Office of the Director of Analysis", "unit": "Office of the Director of Analysis", "parent": "nan", "children": []}]};
 
-    // Création du conteneur SVG
+    const margin = {top: 20, right: 120, bottom: 20, left: 120},
+          width = window.innerWidth,
+          height = window.innerHeight;
+
     const svg = d3.select("#tree-container").append("svg")
         .attr("width", width)
         .attr("height", height);
 
     const g = svg.append("g");
 
-    // Ajout des fonctionnalités Pan & Zoom
     const zoom = d3.zoom()
-        .scaleExtent([0.1, 3]) // Limites du zoom
-        .on("zoom", (event) => {
-            g.attr("transform", event.transform);
-        });
+        .scaleExtent([0.1, 3])
+        .on("zoom", (event) => { g.attr("transform", event.transform); });
     svg.call(zoom);
 
-    // Initialisation du centrage de la caméra
-    const initialTransform = d3.zoomIdentity.translate(margin.left, height / 2);
-    svg.call(zoom.transform, initialTransform);
+    // Centrage initial de la vue
+    svg.call(zoom.transform, d3.zoomIdentity.translate(margin.left + 50, height / 2));
 
-    // Configuration de l'arbre D3 (espace vertical et horizontal entre les cases)
-    const tree = d3.tree().nodeSize([80, 320]); 
+    const dx = 60; // Espace vertical entre les nœuds
+    const dy = 320; // Espace horizontal entre les nœuds
+    const tree = d3.tree().nodeSize([dx, dy]);
 
-    let root;
-    let i = 0;
-    const duration = 600; // Durée des animations en ms
+    const root = d3.hierarchy(treeData);
+    root.x0 = 0;
+    root.y0 = 0;
 
-    // Noms exacts de tes fichiers CSV
-    const fileSenior = "2026-06-22T15-22-05Z-2026-06-22-organogram-senior.csv";
-    const fileJunior = "2026-06-22T15-22-05Z-2026-06-22-organogram-junior.csv";
-
-    // 2. Chargement des données CSV
-    Promise.all([
-        d3.csv(fileSenior).catch(() => []),
-        d3.csv(fileJunior).catch(() => [])
-    ]).then(files => {
-        const seniorData = files[0];
-        const juniorData = files[1];
-        // Fusion des deux datasets
-        const rawData = seniorData.concat(juniorData);
-
-        if(rawData.length === 0) {
-            alert("Erreur: Les fichiers CSV sont introuvables ou vides.");
-            return;
+    // Fonction pour replier les enfants
+    function collapse(d) {
+        if(d.children) {
+            d._children = d.children;
+            d._children.forEach(collapse);
+            d.children = null;
         }
+    }
 
-        // 3. Transformation des données brutes en hiérarchie
-        const nodesMap = new Map();
-        const rootNodes = [];
-
-        rawData.forEach((d, index) => {
-            let id = d["Post Unique Reference"];
-            // Générer un ID fictif pour les lignes qui n'en ont pas
-            if (!id || id.trim() === "" || id === "N/A" || id === "-") {
-                id = "no_id_" + index; 
-            }
-            
-            let name = d["Name"];
-            if (!name || name === "N/A" || name === "Not Disclosed") name = "Nom non divulgué";
-            
-            // On sauvegarde toutes les colonnes utiles
-            nodesMap.set(id, {
-                id: id,
-                name: name,
-                title: d["Job Title"] || "Titre inconnu",
-                parent: d["Reports to Senior Post"],
-                grade: d["Grade (or equivalent)"] || "Non renseigné",
-                unit: d["Unit"] || "Non renseigné",
-                func: d["Job/Team Function"] || "Non renseigné",
-                email: d["Contact E-mail"] || "Non renseigné",
-                children: []
-            });
-        });
-
-        // Construction de l'arbre : on lie chaque nœud à son parent
-        nodesMap.forEach(node => {
-            let parentId = node.parent;
-            if (parentId && nodesMap.has(parentId) && parentId !== node.id) {
-                nodesMap.get(parentId).children.push(node);
-            } else {
-                rootNodes.push(node);
+    // On replie tout sauf le premier niveau par défaut
+    if (root.children) {
+        root.children.forEach(child => {
+            if (child.children) {
+                child.children.forEach(collapse);
             }
         });
+    }
 
-        // Gestion du cas où il y a de multiples racines (très courant dans les données gov.uk)
-        let treeData;
-        if (rootNodes.length === 1) {
-            treeData = rootNodes[0];
-        } else {
-            treeData = {
-                id: "root_defra",
-                name: "Defra",
-                title: "Département Parent",
-                grade: "", unit: "", func: "", email: "",
-                children: rootNodes
-            };
-        }
+    update(root);
 
-        // Conversion en hiérarchie D3
-        root = d3.hierarchy(treeData, d => d.children);
-        root.x0 = 0;
-        root.y0 = 0;
-
-        // Fonction pour replier tous les nœuds descendants
-        function collapse(d) {
-            if (d.children) {
-                d._children = d.children;
-                d._children.forEach(collapse);
-                d.children = null;
-            }
-        }
-
-        // Par défaut, on replie tout sauf le premier niveau
-        if(root.children) {
-            root.children.forEach(collapse);
-        }
-
-        update(root);
-    });
-
-    // 4. Fonction de mise à jour et de dessin (Update)
     function update(source) {
-        const treeData = tree(root);
-        const nodes = treeData.descendants();
-        const links = treeData.descendants().slice(1);
+        const nodes = root.descendants();
+        const links = root.links();
 
-        // --- SECTION NOEUDS ---
-        const node = g.selectAll('g.node')
-            .data(nodes, d => d.id || (d.id = ++i));
+        tree(root);
 
-        // Nouveaux nœuds entrants
-        const nodeEnter = node.enter().append('g')
-            .attr('class', 'node')
+        const duration = 500;
+
+        // Noeuds
+        const node = g.selectAll("g.node")
+            .data(nodes, d => d.id || (d.id = Math.random()));
+
+        const nodeEnter = node.enter().append("g")
+            .attr("class", "node")
             .attr("transform", d => `translate(${source.y0},${source.x0})`)
-            .on('click', click)
-            .on('mouseover', mouseover)
-            .on('mouseout', mouseout);
-
-        // Dessin du rectangle
-        nodeEnter.append('rect')
-            .attr('width', rectWidth)
-            .attr('height', rectHeight)
-            .attr('y', -rectHeight / 2)
-            .attr('rx', 6) // Coins arrondis
-            .attr('fill', d => d._children ? "#e6f2ff" : "#ffffff")
-            .attr('stroke', d => d._children ? "#005ea5" : "#cccccc")
-            .attr('stroke-width', '2px');
-
-        // Texte : Nom (tronqué si trop long)
-        nodeEnter.append('text')
-            .attr("dy", "-0.2em")
-            .attr("x", rectWidth / 2)
-            .attr("text-anchor", "middle")
-            .style('font-size', '14px')
-            .style('font-weight', 'bold')
-            .style('fill', '#111')
-            .text(d => {
-                const n = d.data.name || "";
-                return n.length > 28 ? n.substring(0, 25) + '...' : n;
+            .on("click", (event, d) => {
+                d.children = d.children ? null : d._children;
+                update(d);
             });
 
-        // Texte : Job Title (tronqué si trop long)
-        nodeEnter.append('text')
-            .attr("dy", "1.3em")
-            .attr("x", rectWidth / 2)
-            .attr("text-anchor", "middle")
-            .style('font-size', '12px')
-            .style('fill', '#555')
+        nodeEnter.append("circle")
+            .attr("r", 7)
+            .style("fill", d => d._children ? "#005ea5" : "#fff");
+
+        // Texte : Nom de la personne
+        nodeEnter.append("text")
+            .attr("class", "name-text")
+            .attr("dy", "-0.3em")
+            .attr("x", d => d.children || d._children ? -15 : 15)
+            .attr("text-anchor", d => d.children || d._children ? "end" : "start")
+            .text(d => d.data.name);
+
+        // Texte : Titre / Pôle
+        nodeEnter.append("text")
+            .attr("class", "title-text")
+            .attr("dy", "1.1em")
+            .attr("x", d => d.children || d._children ? -15 : 15)
+            .attr("text-anchor", d => d.children || d._children ? "end" : "start")
             .text(d => {
-                const t = d.data.title || "";
-                return t.length > 35 ? t.substring(0, 32) + '...' : t;
+                const title = d.data.title || d.data.unit || "";
+                return title.length > 50 ? title.substring(0, 47) + '...' : title;
             });
 
-        // Mise à jour des positions
         const nodeUpdate = nodeEnter.merge(node);
+
         nodeUpdate.transition()
             .duration(duration)
             .attr("transform", d => `translate(${d.y},${d.x})`);
 
-        nodeUpdate.select('rect')
-            .attr('fill', d => d._children ? "#e6f2ff" : "#ffffff")
-            .attr('stroke', d => d._children ? "#005ea5" : "#cccccc");
+        nodeUpdate.select("circle")
+            .style("fill", d => d._children ? "#005ea5" : "#fff");
 
-        // Suppression des nœuds
-        const nodeExit = node.exit().transition()
+        node.exit().transition()
             .duration(duration)
             .attr("transform", d => `translate(${source.y},${source.x})`)
             .remove();
 
-        // --- SECTION LIENS ---
-        // Lignes courbes reliant la droite du parent à la gauche de l'enfant
-        const diagonal = d3.linkHorizontal()
-            .source(d => [d.source.y + rectWidth, d.source.x])
-            .target(d => [d.target.y, d.target.x]);
+        // Liens (lignes courbes)
+        const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
 
-        const link = g.selectAll('path.link')
-            .data(links, d => d.id);
+        const link = g.selectAll("path.link")
+            .data(links, d => d.target.id);
 
-        const linkEnter = link.enter().insert('path', "g")
+        const linkEnter = link.enter().insert("path", "g")
             .attr("class", "link")
-            .attr('d', d => {
+            .attr("d", d => {
                 const o = {x: source.x0, y: source.y0};
                 return diagonal({source: o, target: o});
             });
 
-        const linkUpdate = linkEnter.merge(link);
-        linkUpdate.transition()
+        linkEnter.merge(link).transition()
             .duration(duration)
-            .attr('d', diagonal);
+            .attr("d", diagonal);
 
         link.exit().transition()
             .duration(duration)
-            .attr('d', d => {
+            .attr("d", d => {
                 const o = {x: source.x, y: source.y};
                 return diagonal({source: o, target: o});
             })
             .remove();
 
-        // Sauvegarder l'ancienne position pour la transition
         nodes.forEach(d => {
             d.x0 = d.x;
             d.y0 = d.y;
         });
-    }
-
-    // 5. Gestion des événements : Clic (replier/déplier)
-    function click(event, d) {
-        if (d.children) {
-            d._children = d.children; // On sauvegarde les enfants pour les replier
-            d.children = null;
-        } else {
-            d.children = d._children; // On restaure les enfants
-            d._children = null;
-        }
-        update(d);
-    }
-
-    // 6. Gestion des événements : Tooltip (Infobulle) au survol
-    const tooltip = d3.select("#tooltip");
-    
-    function mouseover(event, d) {
-        // Bloquer l'infobulle pour la racine virtuelle si elle existe
-        if (d.data.id === "root_defra") return;
-
-        tooltip.transition().duration(200).style("opacity", 1);
-        tooltip.html(`
-            <p><span class="tooltip-label">Grade :</span> ${d.data.grade}</p>
-            <p><span class="tooltip-label">Unit :</span> ${d.data.unit}</p>
-            <p><span class="tooltip-label">Fonction :</span> ${d.data.func}</p>
-            <p><span class="tooltip-label">Email :</span> <a href="mailto:${d.data.email}">${d.data.email}</a></p>
-        `)
-        // Positionner l'infobulle près de la souris
-        .style("left", (event.pageX + 20) + "px")
-        .style("top", (event.pageY - 30) + "px");
-    }
-
-    function mouseout(event, d) {
-        tooltip.transition().duration(500).style("opacity", 0);
     }
 </script>
 </body>
