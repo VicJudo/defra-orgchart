@@ -8,43 +8,121 @@
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: #f8fafc; overflow: hidden; }
         #tree-container { width: 100vw; height: 100vh; }
         .node { cursor: pointer; }
-        .node circle { fill: #fff; stroke: #005ea5; stroke-width: 2px; }
+        .node circle { stroke: #1e293b; stroke-width: 1.5px; }
         .node text { font-size: 13px; font-family: 'Segoe UI', sans-serif; }
         .link { fill: none; stroke: #cbd5e1; stroke-width: 1.5px; }
         .title-text { fill: #64748b; font-size: 11px; }
         .name-text { fill: #0f172a; font-weight: bold; }
         
-        #instructions {
+        /* Panneau d'instructions et légende */
+        #ui-panel {
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
             border-radius: 8px;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            pointer-events: none;
-            font-size: 14px;
-            color: #333;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 300px;
             z-index: 10;
+        }
+        #ui-panel h3 { margin: 0 0 10px 0; font-size: 14px; color: #0f172a; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; border: 1px solid #1e293b; }
+        
+        /* Infobulle (Tooltip) pour les acronymes */
+        #tooltip {
+            position: absolute;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 20;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            max-width: 250px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-<div id="instructions">
-    <strong>Navigation :</strong> Cliquez et glissez pour bouger.<br>
-    Utilisez la molette pour zoomer.<br>
-    <strong>Cliquez sur les points bleus</strong> pour dérouler ou replier les branches.
+<div id="ui-panel">
+    <h3>Navigation</h3>
+    <p style="font-size: 12px; margin-bottom: 15px;">Glissez pour bouger, molette pour zoomer.<br><strong>Cliquez sur les points</strong> pour ouvrir/fermer.<br><strong>Survolez les titres</strong> pour traduire les acronymes.</p>
+    <h3>Directions (Units)</h3>
+    <div id="legend"></div>
 </div>
 
+<div id="tooltip"></div>
 <div id="tree-container"></div>
 
 <script>
-    // Arbre de données pré-calculé 
-    const treeData = {"name": "Defra", "title": "Department for Environment, Food & Rural Affairs", "children": [{"id": "200319", "name": "Paul Kissack", "title": "Permanent Secretary", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "XX", "children": [{"id": "200033", "name": "Lucy Smith", "title": "SIFFG Office", "unit": "STRATEGY AND WATER DG OFFICES DIRECTORATE", "parent": "200319", "children": []}, {"id": "200225", "name": "Nicholas Joicey", "title": "Permanent Secretary", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "200319", "children": []}, {"id": "200202", "name": "David Hill", "title": "DEF STRATEGY DG OFFICE", "unit": "STRATEGY AND WATER DG OFFICES DIRECTORATE", "parent": "200319", "children": [{"id": "200321", "name": "Lyndsay Rooney", "title": "DEF ENABLING PROGRAMMES", "unit": "CHANGE DELIVERY DIRECTORATE", "parent": "200202", "children": []}, {"id": "200054", "name": "Christopher Hobley", "title": "Strategy Unit", "unit": "GROUP STRATEGY DIRECTORATE", "parent": "200202", "children": []}, {"id": "200139", "name": "Sebastian Catovsky", "title": "Water Ongoing Activities - Corporate Support", "unit": "WATER AND FLOOD MANAGEMENT DIRECTORATE", "parent": "200202", "children": []}, {"id": "200205", "name": "Rebecca Shrubsole", "title": "DEF MINISTERIAL, GROWTH AND RESILIENCE DIRECTOR", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "200202", "children": []}, {"id": "200210", "name": "David Hallam", "title": "Water Ongoing Activities - Corporate Support", "unit": "WATER AND FLOOD MANAGEMENT DIRECTORATE", "parent": "200202", "children": []}, {"id": "200267", "name": "Kirsten Wildgoose", "title": "DEF PORTFOLIO OFFICE - PORTFOLIO MANAGEMENT OFFICE", "unit": "PORTFOLIO DIRECTORATE", "parent": "200202", "children": []}, {"id": "200231", "name": "Christian Cubitt", "title": "Comms Director and Support", "unit": "COMMUNICATIONS DIRECTORATE", "parent": "200202", "children": []}]}, {"id": "200268", "name": "Emily Miles", "title": "DEF FFAPH OFFICE", "unit": "FOOD FARMING AND BIOSECURITY DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200153", "name": "Ceri Morgan", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "EU AND INTERNATIONAL TRADE DIRECTORATE", "parent": "200268", "children": []}, {"id": "200339", "name": "Jeremy Sharpe", "title": "DEF FFAPH OFFICE", "unit": "FOOD FARMING AND BIOSECURITY DG OFFICE DIRECTORATE", "parent": "200268", "children": []}, {"id": "200092", "name": "Mike Rowe", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "FARMING DIRECTORATE - ADMIN COSTS", "parent": "200268", "children": []}, {"id": "200327", "name": "Anjali Juneja", "title": "Director: Animal and Plant Health", "unit": "ANIMAL AND PLANT HEALTH DIRECTORATE", "parent": "200268", "children": []}, {"id": "200022", "name": "Janet Hughes", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "FARMING DIRECTORATE - ADMIN COSTS", "parent": "200268", "children": []}, {"id": "200117", "name": "Christine Middlemiss", "title": "CVO Office", "unit": "ANIMAL AND PLANT HEALTH DIRECTORATE", "parent": "200268", "children": []}, {"id": "200077", "name": "Charlotte Baker", "title": "DEF AFC FOOD STRATEGY", "unit": "AGRI FOOD CHAIN DIRECTORATE", "parent": "200268", "children": []}, {"id": "200087", "name": "Tessa Jones", "title": "DEF AFC FOOD STRATEGY", "unit": "AGRI FOOD CHAIN DIRECTORATE", "parent": "200268", "children": []}]}, {"id": "200297", "name": "Anjali Goswami", "title": "DEF SCIENCE AND ANALYSIS DG OFFICE", "unit": "SCIENCE, DATA AND ANALYSIS DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200259", "name": "Susan Bateman", "title": "DEF OFFICE OF THE CHIEF DATA OFFICER", "unit": "OFFICE OF THE CHIEF DATA OFFICER DIRECTORATE", "parent": "200297", "children": []}, {"id": "200067", "name": "Emma Campbell", "title": "Office of the Director of Analysis", "unit": "ANALYSIS DIRECTORATE", "parent": "200297", "children": []}]}, {"id": "200180", "name": "Emma Bourne", "title": "DEF RESOURCE AND WASTE DIRECTORS OFFICE", "unit": "CIRCULAR ECONOMY DIRECTORATE", "parent": "200319", "children": [{"id": "200006", "name": "Rachel Irving", "title": "DEF EUDP DIRECTOR", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}, {"id": "200316", "name": "Sophie Brice", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "EU AND INTERNATIONAL TRADE DIRECTORATE", "parent": "200180", "children": []}, {"id": "200191", "name": "Mark Thompson", "title": "DEF NID DIRECTOR'S OFFICE", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}, {"id": "200330", "name": "Ed Moses", "title": "DEF EUDP DIRECTOR", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}]}, {"id": "200206", "name": "Sara Randall", "title": "ERG Office", "unit": "ENVIRONMENT DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200307", "name": "Kate Davies", "title": "ERG Office", "unit": "ENVIRONMENT DG OFFICE DIRECTORATE", "parent": "200206", "children": []}, {"id": "200015", "name": "Simon James", "title": "DEF CE PRIVATE OFFICE & SLT", "unit": "CIRCULAR ECONOMY DIRECTORATE", "parent": "200206", "children": []}, {"id": "200301", "name": "Jeremy Blake", "title": "DEF EPR SCHEME ADMINISTRATOR", "unit": "PEPR DIRECTORATE", "parent": "200206", "children": []}, {"id": "200091", "name": "Gareth Baynham-Hughes", "title": "DEF MARINE DIRECTOR AND SUPPORT", "unit": "MARINE AND FISHERIES DIRECTORATE", "parent": "200206", "children": []}, {"id": "200135", "name": "Toby Nation", "title": "EQ Portfolio Office", "unit": "ENV QUALITY, INFRASTRUCTURE & PLANNING DIRECTORATE", "parent": "200206", "children": []}, {"id": "200140", "name": "Deborah Hankins", "title": "Natural Environment Policy Directors Office", "unit": "BIODIVERSITY, LAND USE & INVESTMENT DIRECTORATE", "parent": "200206", "children": []}, {"id": "200184", "name": "Andrea Ledward", "title": "DEF IBC DIRECTORATE SUPPORT", "unit": "INTERNATIONAL BIODIVERSITY AND CLIMATE DIRECTORATE", "parent": "200206", "children": []}, {"id": "200207", "name": "Edward Barker", "title": "DEF EU EXIT ENV GOV BODY AND STATEMENT OF ENV PRINCIPLES", "unit": "STRATEGY, GOVERNANCE & CLIMATE DIRECTORATE", "parent": "200206", "children": []}]}, {"id": "200075", "name": "Iain King", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "FINANCE DIRECTORATE", "parent": "200319", "children": [{"id": "200203", "name": "Helen Johnston", "title": "DEF COO & DG OFFICE WORKFORCE", "unit": "DEFRA GROUP PROPERTY DIRECTORATE", "parent": "200075", "children": []}, {"id": "200029", "name": "Colin Dingwall", "title": "DEF SCIENCE PROJECTS - MASTERPLAN / SCAH", "unit": "NATIONAL BIOSECURITY CENTRE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200270", "name": "Einav Ben-Yehuda", "title": "DEF COMMERCIAL DIRECTORATE", "unit": "DEF COMMERCIAL DIRECTORATE", "parent": "200075", "children": [{"id": "200292", "name": "Andrew Mayes", "title": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "unit": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "parent": "200270", "children": []}]}, {"id": "200149", "name": "Nicola Bettesworth", "title": "DEF HR PRIVATE OFFICE", "unit": "HUMAN RESOURCES DIRECTORATE", "parent": "200075", "children": []}, {"id": "200341", "name": "Susan Candlish", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200165", "name": "Clare Jeffreys", "title": "DEF EA BUSINESS FINANCE HEAD OFFICE", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200237", "name": "Kate Smaldon", "title": "Finance Director and Admin Support", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200160", "name": "Colin Banno-Thornton", "title": "DEF DDTS - CROSS CUTTING NON-TECHNICAL", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200075", "children": [{"id": "200157", "name": "Christopher Howes", "title": "DEF GIO Resources", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}, {"id": "200181", "name": "Edward Parry", "title": "DEF GIO Resources", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}, {"id": "200264", "name": "Misha Anand", "title": "DEF Strat Business Relationship Man", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}]}]}]}]};
+    // --- 1. DONNÉES PRÉ-CALCULÉES ---
+    const treeData = {"name": "Defra", "title": "Department for Environment, Food & Rural Affairs", "unit": "DEFRA", "children": [{"id": "200319", "name": "Paul Kissack", "title": "Permanent Secretary", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "XX", "children": [{"id": "200033", "name": "Lucy Smith", "title": "SIFFG Office", "unit": "STRATEGY AND WATER DG OFFICES DIRECTORATE", "parent": "200319", "children": []}, {"id": "200225", "name": "Nicholas Joicey", "title": "Permanent Secretary", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "200319", "children": []}, {"id": "200202", "name": "David Hill", "title": "DEF STRATEGY DG OFFICE", "unit": "STRATEGY AND WATER DG OFFICES DIRECTORATE", "parent": "200319", "children": [{"id": "200321", "name": "Lyndsay Rooney", "title": "DEF ENABLING PROGRAMMES", "unit": "CHANGE DELIVERY DIRECTORATE", "parent": "200202", "children": []}, {"id": "200054", "name": "Christopher Hobley", "title": "Strategy Unit", "unit": "GROUP STRATEGY DIRECTORATE", "parent": "200202", "children": []}, {"id": "200139", "name": "Sebastian Catovsky", "title": "Water Ongoing Activities - Corporate Support", "unit": "WATER AND FLOOD MANAGEMENT DIRECTORATE", "parent": "200202", "children": []}, {"id": "200205", "name": "Rebecca Shrubsole", "title": "DEF MINISTERIAL, GROWTH AND RESILIENCE DIRECTOR", "unit": "MINISTERIAL, GROWTH AND RESILIENCE DIRECTORATE", "parent": "200202", "children": []}, {"id": "200210", "name": "David Hallam", "title": "Water Ongoing Activities - Corporate Support", "unit": "WATER AND FLOOD MANAGEMENT DIRECTORATE", "parent": "200202", "children": []}, {"id": "200267", "name": "Kirsten Wildgoose", "title": "DEF PORTFOLIO OFFICE - PORTFOLIO MANAGEMENT OFFICE", "unit": "PORTFOLIO DIRECTORATE", "parent": "200202", "children": []}, {"id": "200231", "name": "Christian Cubitt", "title": "Comms Director and Support", "unit": "COMMUNICATIONS DIRECTORATE", "parent": "200202", "children": []}]}, {"id": "200268", "name": "Emily Miles", "title": "DEF FFAPH OFFICE", "unit": "FOOD FARMING AND BIOSECURITY DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200153", "name": "Ceri Morgan", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "EU AND INTERNATIONAL TRADE DIRECTORATE", "parent": "200268", "children": []}, {"id": "200339", "name": "Jeremy Sharpe", "title": "DEF FFAPH OFFICE", "unit": "FOOD FARMING AND BIOSECURITY DG OFFICE DIRECTORATE", "parent": "200268", "children": []}, {"id": "200092", "name": "Mike Rowe", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "FARMING DIRECTORATE - ADMIN COSTS", "parent": "200268", "children": []}, {"id": "200327", "name": "Anjali Juneja", "title": "Director: Animal and Plant Health", "unit": "ANIMAL AND PLANT HEALTH DIRECTORATE", "parent": "200268", "children": []}, {"id": "200022", "name": "Janet Hughes", "title": "DEF FFCP DIRECTORS OFFICE", "unit": "FARMING DIRECTORATE - ADMIN COSTS", "parent": "200268", "children": []}, {"id": "200117", "name": "Christine Middlemiss", "title": "CVO Office", "unit": "ANIMAL AND PLANT HEALTH DIRECTORATE", "parent": "200268", "children": []}, {"id": "200077", "name": "Charlotte Baker", "title": "DEF AFC FOOD STRATEGY", "unit": "AGRI FOOD CHAIN DIRECTORATE", "parent": "200268", "children": []}, {"id": "200087", "name": "Tessa Jones", "title": "DEF AFC FOOD STRATEGY", "unit": "AGRI FOOD CHAIN DIRECTORATE", "parent": "200268", "children": []}]}, {"id": "200297", "name": "Anjali Goswami", "title": "DEF SCIENCE AND ANALYSIS DG OFFICE", "unit": "SCIENCE, DATA AND ANALYSIS DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200259", "name": "Susan Bateman", "title": "DEF OFFICE OF THE CHIEF DATA OFFICER", "unit": "OFFICE OF THE CHIEF DATA OFFICER DIRECTORATE", "parent": "200297", "children": []}, {"id": "200067", "name": "Emma Campbell", "title": "Office of the Director of Analysis", "unit": "ANALYSIS DIRECTORATE", "parent": "200297", "children": []}]}, {"id": "200180", "name": "Emma Bourne", "title": "DEF RESOURCE AND WASTE DIRECTORS OFFICE", "unit": "CIRCULAR ECONOMY DIRECTORATE", "parent": "200319", "children": [{"id": "200006", "name": "Rachel Irving", "title": "DEF EUDP DIRECTOR", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}, {"id": "200316", "name": "Sophie Brice", "title": "DEF TRADE ANALYSIS, PROJECT DELIVERY & SUPPORT", "unit": "EU AND INTERNATIONAL TRADE DIRECTORATE", "parent": "200180", "children": []}, {"id": "200191", "name": "Mark Thompson", "title": "DEF NID DIRECTOR'S OFFICE", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}, {"id": "200330", "name": "Ed Moses", "title": "DEF EUDP DIRECTOR", "unit": "TRADE DELIVERY DIRECTORATE", "parent": "200180", "children": []}]}, {"id": "200206", "name": "Sara Randall", "title": "ERG Office", "unit": "ENVIRONMENT DG OFFICE DIRECTORATE", "parent": "200319", "children": [{"id": "200307", "name": "Kate Davies", "title": "ERG Office", "unit": "ENVIRONMENT DG OFFICE DIRECTORATE", "parent": "200206", "children": []}, {"id": "200015", "name": "Simon James", "title": "DEF CE PRIVATE OFFICE & SLT", "unit": "CIRCULAR ECONOMY DIRECTORATE", "parent": "200206", "children": []}, {"id": "200301", "name": "Jeremy Blake", "title": "DEF EPR SCHEME ADMINISTRATOR", "unit": "PEPR DIRECTORATE", "parent": "200206", "children": []}, {"id": "200091", "name": "Gareth Baynham-Hughes", "title": "DEF MARINE DIRECTOR AND SUPPORT", "unit": "MARINE AND FISHERIES DIRECTORATE", "parent": "200206", "children": []}, {"id": "200135", "name": "Toby Nation", "title": "EQ Portfolio Office", "unit": "ENV QUALITY, INFRASTRUCTURE & PLANNING DIRECTORATE", "parent": "200206", "children": []}, {"id": "200140", "name": "Deborah Hankins", "title": "Natural Environment Policy Directors Office", "unit": "BIODIVERSITY, LAND USE & INVESTMENT DIRECTORATE", "parent": "200206", "children": []}, {"id": "200184", "name": "Andrea Ledward", "title": "DEF IBC DIRECTORATE SUPPORT", "unit": "INTERNATIONAL BIODIVERSITY AND CLIMATE DIRECTORATE", "parent": "200206", "children": []}, {"id": "200207", "name": "Edward Barker", "title": "DEF EU EXIT ENV GOV BODY AND STATEMENT OF ENV PRINCIPLES", "unit": "STRATEGY, GOVERNANCE & CLIMATE DIRECTORATE", "parent": "200206", "children": []}]}, {"id": "200075", "name": "Iain King", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "FINANCE DIRECTORATE", "parent": "200319", "children": [{"id": "200203", "name": "Helen Johnston", "title": "DEF COO & DG OFFICE WORKFORCE", "unit": "DEFRA GROUP PROPERTY DIRECTORATE", "parent": "200075", "children": []}, {"id": "200029", "name": "Colin Dingwall", "title": "DEF SCIENCE PROJECTS - MASTERPLAN / SCAH", "unit": "NATIONAL BIOSECURITY CENTRE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200270", "name": "Einav Ben-Yehuda", "title": "DEF COMMERCIAL DIRECTORATE", "unit": "DEF COMMERCIAL DIRECTORATE", "parent": "200075", "children": [{"id": "200292", "name": "Andrew Mayes", "title": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "unit": "DEF GCS STRATEGY, PARTNERSHIPS AND OPERATIONS DIRECTORATE", "parent": "200270", "children": []}]}, {"id": "200149", "name": "Nicola Bettesworth", "title": "DEF HR PRIVATE OFFICE", "unit": "HUMAN RESOURCES DIRECTORATE", "parent": "200075", "children": []}, {"id": "200341", "name": "Susan Candlish", "title": "DEF DEFRA GROUP FINANCE - CFO", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200165", "name": "Clare Jeffreys", "title": "DEF EA BUSINESS FINANCE HEAD OFFICE", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200237", "name": "Kate Smaldon", "title": "Finance Director and Admin Support", "unit": "FINANCE DIRECTORATE", "parent": "200075", "children": []}, {"id": "200160", "name": "Colin Banno-Thornton", "title": "DEF DDTS - CROSS CUTTING NON-TECHNICAL", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200075", "children": [{"id": "200157", "name": "Christopher Howes", "title": "DEF GIO Resources", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}, {"id": "200181", "name": "Edward Parry", "title": "DEF GIO Resources", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}, {"id": "200264", "name": "Misha Anand", "title": "DEF Strat Business Relationship Man", "unit": "DIGITAL, DATA, TECHNOLOGY AND SECURITY DIRECTORATE", "parent": "200160", "children": []}]}]}]}]};
 
-    const margin = {top: 20, right: 120, bottom: 20, left: 120},
+    // --- 2. DICTIONNAIRE DES ACRONYMES ---
+    const acronymsDict = {
+        "DEF": "Defra",
+        "DG": "Director General (Directeur Général)",
+        "CFO": "Chief Financial Officer (Directeur Financier)",
+        "COO": "Chief Operating Officer (Directeur des Opérations)",
+        "CVO": "Chief Veterinary Officer (Directeur Vétérinaire)",
+        "CE": "Chief Executive / Circular Economy",
+        "HR": "Human Resources (Ressources Humaines)",
+        "DDTS": "Digital, Data and Technology Services",
+        "GIO": "Group Infrastructure & Operations",
+        "FFAPH": "Future Farming and Animal & Plant Health",
+        "FFCP": "Future Farming and Countryside Programme",
+        "ERG": "Environment and Rural Group",
+        "SIFFG": "Strategy, International, Food and Farming Group",
+        "AFC": "Agri-Food Chain (Chaîne agroalimentaire)",
+        "EPR": "Extended Producer Responsibility (Responsabilité élargie des producteurs)",
+        "PEPR": "Packaging Extended Producer Responsibility",
+        "EUDP": "EU Delivery Programme",
+        "GCS": "Government Communication Service",
+        "IBC": "International Biodiversity and Climate",
+        "NID": "Northern Ireland Directorate",
+        "SCAH": "Science Capability in Animal Health",
+        "SLT": "Senior Leadership Team",
+        "Strat": "Strategy (Stratégie)"
+    };
+
+    // Traducteur d'acronymes
+    function expandAcronyms(text) {
+        let expanded = text;
+        let found = false;
+        // Vérifie chaque acronyme dans le texte
+        Object.keys(acronymsDict).forEach(key => {
+            const regex = new RegExp("\\b" + key + "\\b", "g");
+            if (regex.test(expanded)) {
+                expanded = expanded.replace(regex, `<strong>${acronymsDict[key]}</strong>`);
+                found = true;
+            }
+        });
+        return { text: expanded, found: found };
+    }
+
+    // --- 3. GESTION DES COULEURS (UNITS) ---
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+    
+    // Génération de la légende
+    const units = Array.from(new Set(d3.hierarchy(treeData).descendants().map(d => d.data.unit))).filter(u => u && u !== "DEFRA");
+    const legendDiv = d3.select("#legend");
+    units.forEach(unit => {
+        const item = legendDiv.append("div").attr("class", "legend-item");
+        item.append("div").attr("class", "legend-color").style("background-color", colorScale(unit));
+        item.append("div").text(unit);
+    });
+
+    // --- 4. CONFIGURATION D3.JS ---
+    const margin = {top: 20, right: 120, bottom: 20, left: 350}, // Plus de marge à gauche pour la légende
           width = window.innerWidth,
           height = window.innerHeight;
 
@@ -58,20 +136,13 @@
         .scaleExtent([0.1, 3])
         .on("zoom", (event) => { g.attr("transform", event.transform); });
     svg.call(zoom);
-
-    // Centrage de la caméra à gauche
     svg.call(zoom.transform, d3.zoomIdentity.translate(margin.left, height / 2));
 
-    const dx = 50; 
-    const dy = 350; 
-    const tree = d3.tree().nodeSize([dx, dy]);
-
-    // Construction robuste de la hiérarchie pour sécuriser les nœuds terminaux
+    const tree = d3.tree().nodeSize([50, 350]);
     const root = d3.hierarchy(treeData, d => (d.children && d.children.length > 0) ? d.children : null);
     root.x0 = 0;
     root.y0 = 0;
 
-    // Fonction pour cacher les enfants initiaux
     function collapse(d) {
         if (d.children) {
             d._children = d.children;
@@ -79,27 +150,23 @@
             d.children = null;
         }
     }
-
-    // On replie tout sauf le premier niveau
     if (root.children) {
         root.children.forEach(child => {
-            if (child.children) {
-                child.children.forEach(collapse);
-            }
+            if (child.children) child.children.forEach(collapse);
         });
     }
+
+    const tooltip = d3.select("#tooltip");
 
     update(root);
 
     function update(source) {
         const nodes = root.descendants();
         const links = root.links();
-
         tree(root);
-
         const duration = 500;
 
-        // ------ SECTION NOEUDS ------
+        // Noeuds
         const node = g.selectAll("g.node")
             .data(nodes, d => d.id || (d.id = Math.random()));
 
@@ -107,23 +174,37 @@
             .attr("class", "node")
             .attr("transform", d => `translate(${source.y0},${source.x0})`)
             .on("click", (event, d) => {
-                // Logique de clic robuste : on bascule entre children et _children
-                if (d.children) {
-                    d._children = d.children; // On sauvegarde
-                    d.children = null;        // On cache
-                } else if (d._children) {
-                    d.children = d._children; // On restaure
-                    d._children = null;       // On vide la mémoire temporaire
-                }
+                if (d.children) { d._children = d.children; d.children = null; } 
+                else if (d._children) { d.children = d._children; d._children = null; }
                 update(d);
+            })
+            // Évènements pour l'infobulle (ToolTip)
+            .on("mouseover", (event, d) => {
+                const titleStr = d.data.title || "";
+                const unitStr = d.data.unit || "";
+                
+                const titleExpanded = expandAcronyms(titleStr);
+                const unitExpanded = expandAcronyms(unitStr);
+                
+                if (titleExpanded.found || unitExpanded.found) {
+                    tooltip.transition().duration(200).style("opacity", 1);
+                    tooltip.html(`
+                        <div style="margin-bottom:5px;"><strong>Titre décodé:</strong><br>${titleExpanded.text}</div>
+                        <div><strong>Unité décodée:</strong><br>${unitExpanded.text}</div>
+                    `)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 15) + "px");
+                }
+            })
+            .on("mouseout", () => {
+                tooltip.transition().duration(200).style("opacity", 0);
             });
 
-        // Les ronds de couleur
+        // Les ronds colorés selon l'Unit
         nodeEnter.append("circle")
-            .attr("r", 6)
-            .style("fill", d => d._children ? "#005ea5" : "#fff");
+            .attr("r", 7)
+            .style("fill", d => colorScale(d.data.unit));
 
-        // Texte : Nom
         nodeEnter.append("text")
             .attr("class", "name-text")
             .attr("dy", "-0.2em")
@@ -131,7 +212,6 @@
             .attr("text-anchor", d => (d.children || d._children) ? "end" : "start")
             .text(d => d.data.name);
 
-        // Texte : Titre
         nodeEnter.append("text")
             .attr("class", "title-text")
             .attr("dy", "1.1em")
@@ -143,26 +223,22 @@
             });
 
         const nodeUpdate = nodeEnter.merge(node);
-
         nodeUpdate.transition()
             .duration(duration)
             .attr("transform", d => `translate(${d.y},${d.x})`);
 
-        // Mise à jour de la couleur du rond si la branche est fermée ou ouverte
         nodeUpdate.select("circle")
-            .style("fill", d => d._children ? "#005ea5" : "#fff");
+            .style("fill", d => colorScale(d.data.unit)) // Applique la couleur de l'unité
+            .style("stroke-width", d => d._children ? "3px" : "1.5px"); // Rond plus épais si on peut le déplier
 
         node.exit().transition()
             .duration(duration)
             .attr("transform", d => `translate(${source.y},${source.x})`)
             .remove();
 
-        // ------ SECTION LIENS ------
+        // Liens
         const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
-
-        const link = g.selectAll("path.link")
-            .data(links, d => d.target.id);
-
+        const link = g.selectAll("path.link").data(links, d => d.target.id);
         const linkEnter = link.enter().insert("path", "g")
             .attr("class", "link")
             .attr("d", d => {
@@ -182,11 +258,7 @@
             })
             .remove();
 
-        // Sauvegarde de l'ancienne position pour l'animation
-        nodes.forEach(d => {
-            d.x0 = d.x;
-            d.y0 = d.y;
-        });
+        nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
     }
 </script>
 </body>
